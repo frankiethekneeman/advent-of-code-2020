@@ -8,13 +8,50 @@ import (
 )
 
 type RESULT_TYPE = int
-
 /*
 Begin Solution
 */
 
+const (
+    TREE = '#'
+    OPEN = '.'
+)
+
+func evaluateSlope(drop int, travel int, treeLocations [][]rune) int {
+    trees := 0
+    for row := 0 ; row < len(treeLocations); row += drop {
+        col := ((row / drop) * travel) % len(treeLocations[row])
+        if treeLocations[row][col] == TREE {
+            trees++
+        }
+    }
+    return trees;
+
+}
+
+type Vector struct {
+    travel int
+    drop int
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    treeLocations := make([][]rune, len(lines))
+    for i, line := range lines {
+        treeLocations[i] = []rune(line)
+    }
+    toEvaluate := []Vector{
+        Vector{1, 1},
+        Vector{3, 1},
+        Vector{5, 1},
+        Vector{7, 1},
+        Vector{1, 2},
+    }
+
+    runningProduct := 1
+    for _, vector := range toEvaluate {
+        runningProduct *= evaluateSlope(vector.drop, vector.travel, treeLocations)
+    }
+    return runningProduct
 }
 
 /*
@@ -22,6 +59,7 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        336,
     }
 }
 

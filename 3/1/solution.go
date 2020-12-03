@@ -13,8 +13,28 @@ type RESULT_TYPE = int
 Begin Solution
 */
 
+const (
+    TREE = '#'
+    OPEN = '.'
+)
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    treeLocations := make([][]rune, len(lines))
+    for i, line := range lines {
+        treeLocations[i] = []rune(line)
+    }
+    row := 0
+    col := 0
+    DROP := 1
+    TRAVEL := 3
+    trees := 0
+    for ; row < len(lines); row += DROP {
+        if treeLocations[row][col] == TREE {
+            trees++
+        }
+        col = (col + TRAVEL) % len(treeLocations[row])
+    }
+    return trees;
 }
 
 /*
@@ -22,6 +42,7 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        7,
     }
 }
 
