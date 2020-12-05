@@ -13,15 +13,15 @@ type RESULT_TYPE = int
 /*
 Begin Solution
 */
-    var REQUIRED_FIELDS = [...]string {
-        "byr",
-        "iyr",
-        "eyr",
-        "hgt",
-        "hcl",
-        "ecl",
-        "pid",
-    }
+var REQUIRED_FIELDS = [...]string {
+    "byr",
+    "iyr",
+    "eyr",
+    "hgt",
+    "hcl",
+    "ecl",
+    "pid",
+}
 
 func isValid(passport map[string]string) bool {
     for _, field := range REQUIRED_FIELDS {
@@ -36,7 +36,7 @@ func isValid(passport map[string]string) bool {
 func addFields(passport map[string] string, line string) {
     for _, entry := range strings.Split(line, " ") {
         pieces := strings.Split(entry, ":")
-        passport[pieces[0]] = passport[pieces[1]]
+        passport[pieces[0]] = pieces[1]
     }
 }
 
@@ -48,8 +48,8 @@ func solution(lines []string) RESULT_TYPE {
         if line == "" {
             if isValid(passport) {
                 valid ++
-                passport = make(map[string] string)
             }
+            passport = make(map[string] string)
         } else {
             addFields(passport, line)
         }
