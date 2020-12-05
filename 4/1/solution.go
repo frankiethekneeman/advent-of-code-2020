@@ -4,6 +4,7 @@ import (
     "bufio"
     "fmt"
     "os"
+    "strings"
     "strconv"
 )
 
@@ -12,16 +13,65 @@ type RESULT_TYPE = int
 /*
 Begin Solution
 */
+    var REQUIRED_FIELDS = [...]string {
+        "byr",
+        "iyr",
+        "eyr",
+        "hgt",
+        "hcl",
+        "ecl",
+        "pid",
+    }
+
+func isValid(passport map[string]string) bool {
+    for _, field := range REQUIRED_FIELDS {
+        _, exists := passport[field]
+        if !exists {
+            return false
+        }
+    }
+    return true
+}
+
+func addFields(passport map[string] string, line string) {
+    for _, entry := range strings.Split(line, " ") {
+        pieces := strings.Split(entry, ":")
+        passport[pieces[0]] = passport[pieces[1]]
+    }
+}
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    passport := make(map[string] string)
+    valid := 0
+
+    for _, line := range lines {
+        if line == "" {
+            if isValid(passport) {
+                valid ++
+                passport = make(map[string] string)
+            }
+        } else {
+            addFields(passport, line)
+        }
+    }
+    if isValid(passport) {
+        valid ++
+    }
+
+    return valid;
 }
 
 /*
 Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
+
     return []RESULT_TYPE {
+        1,
+        0,
+        1,
+        0,
+        2,
     }
 }
 
