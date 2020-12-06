@@ -13,8 +13,36 @@ type RESULT_TYPE = int
 Begin Solution
 */
 
+func countUniversalAnswers(yesses map[rune] int, groupSize int) int {
+    count := 0
+    for _, n := range yesses {
+        if n == groupSize {
+            count++
+        }
+    }
+    return count
+}
+
+func newGroup() (map[rune] int, int) {
+    return make(map[rune] int), 0
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    yesses, groupSize := newGroup()
+    count := 0
+    for _, line := range lines {
+        if (line == "") {
+            count += countUniversalAnswers(yesses, groupSize)
+            yesses, groupSize = newGroup()
+        } else {
+            for _, yes := range line {
+                yesses[yes] += 1
+            }
+            groupSize++
+        }
+    }
+    count += countUniversalAnswers(yesses, groupSize)
+    return count;
 }
 
 /*
@@ -22,6 +50,12 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        3,
+        0,
+        1,
+        1,
+        1,
+        6,
     }
 }
 

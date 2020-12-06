@@ -14,7 +14,20 @@ Begin Solution
 */
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    yesses := make(map[rune]bool)
+    count := 0
+    for _, line := range lines {
+        if (line == "") {
+            count += len(yesses)
+            yesses = make(map[rune]bool)
+        } else {
+            for _, yes := range line {
+                yesses[yes] = true
+            }
+        }
+    }
+    count += len(yesses)
+    return count;
 }
 
 /*
@@ -22,6 +35,12 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        3,
+        3,
+        3,
+        1,
+        1,
+        11,
     }
 }
 
