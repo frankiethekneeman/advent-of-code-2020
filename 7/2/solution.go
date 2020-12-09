@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
 type RESULT_TYPE = int
@@ -13,8 +14,60 @@ type RESULT_TYPE = int
 Begin Solution
 */
 
+type BagCount struct {
+    num int
+    color string
+}
+
+func parseContents(contents string) []*BagCount {
+    if (contents == "no other bags.") {
+        return make([]*BagCount, 0)
+    }
+    parts := strings.Split(contents, ", ")
+    toReturn := make([]*BagCount, len(parts))
+    for i, part := range parts {
+        var count int
+        var adj, color string
+        _, err := fmt.Sscanf(part, "%d %s %s bag", &count, &adj, &color)
+        //fmt.Printf("%v, %d, %s, %s, 
+        checkErr(err);
+        toReturn[i] = &BagCount {
+            count,
+            adj + " " + color,
+        }
+    }
+    return toReturn
+}
+
+func mustContain(startingColor string, rules map[string][]*BagCount) int {
+    ruleSet, ok := rules[startingColor]
+    if !ok {
+        panic("Cannot find bag contents: " + startingColor)
+    }
+
+    count := 0 
+    for _, rule := range ruleSet {
+        count += rule.num * (mustContain(rule.color, rules) + 1)
+    }
+    return count
+}
+
+func parseRule(line string) (string, []*BagCount) {
+    var adj, color string
+    _, err := fmt.Sscanf(line, "%s %s bags contain", &adj, &color)
+    checkErr(err);
+    stemLength := len(adj) + len(color) + 15
+    return adj + " " + color, parseContents(line[stemLength:])
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    grammar := make(map[string][]*BagCount)
+    for _, line := range lines {
+        color, contents := parseRule(line)
+        grammar[color] = contents
+    }
+
+    return mustContain("shiny gold", grammar)
 }
 
 /*
@@ -22,6 +75,8 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        32,
+        126,
     }
 }
 
