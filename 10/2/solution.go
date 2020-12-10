@@ -7,14 +7,43 @@ import (
     "strconv"
 )
 
-type RESULT_TYPE = int
+type RESULT_TYPE = int64
 
 /*
 Begin Solution
 */
 
+func countPaths(input int, target int, adapters map[int] bool, memos map[int]int64) int64 {
+    count, memoized := memos[input];
+    if memoized {
+        return count
+    }
+    count = 0
+    for next := input + 1; next <= input + 3; next++ {
+        if next == target {
+            count++
+        } else if adapters[next] {
+            count += countPaths(next, target, adapters, memos)
+        }
+    }
+    memos[input] = count
+    return count
+
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    adapters := make(map[int]bool)
+    max := 0
+    for _, line := range lines {
+        output, err := strconv.Atoi(line)
+        checkErr(err)
+        adapters[output] = true
+        if output > max {
+            max = output
+        }
+    }
+    
+    return countPaths(0, max, adapters, make(map[int]int64))
 }
 
 /*
@@ -22,6 +51,8 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        8,
+        19208,
     }
 }
 

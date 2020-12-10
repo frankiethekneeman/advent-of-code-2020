@@ -4,6 +4,7 @@ import (
     "bufio"
     "fmt"
     "os"
+    "sort"
     "strconv"
 )
 
@@ -14,7 +15,26 @@ Begin Solution
 */
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    adapters := make([]int, len(lines))
+    for i, line := range lines {
+        asInt, err := strconv.Atoi(line)
+        checkErr(err)
+        adapters[i] = asInt
+    }
+    sort.Ints(adapters)
+    diff1 := 0
+    diff3 := 1
+    for i, output := range adapters {
+        input := 0
+        if (i > 0) {
+            input = adapters[i - 1]
+        }
+        switch output - input {
+            case 1: diff1 ++
+            case 3: diff3 ++
+        }
+    }
+    return diff1 * diff3;
 }
 
 /*
@@ -22,6 +42,8 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        35,
+        220,
     }
 }
 
