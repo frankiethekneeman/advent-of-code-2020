@@ -5,16 +5,91 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
-type RESULT_TYPE = int
+type RESULT_TYPE = int64
 
 /*
 Begin Solution
 */
 
+type Mask struct {
+    ones int64
+    zeros int64
+}
+
+type Computer struct {
+    mask Mask
+    memory map[int64]int64
+}
+
+func getOneMask(maskSpec string) int64 {
+    result, err := strconv.ParseInt(
+        strings.Replace(maskSpec, "X", "0", -1),
+        2,
+        64,
+    )
+    checkErr(err)
+    return result
+}
+
+func getZeroMask(maskSpec string) int64 {
+    result, err := strconv.ParseInt(
+        strings.Replace(maskSpec, "X", "1", -1),
+        2,
+        64,
+    )
+    checkErr(err)
+    return result
+}
+
+func getMemoryAddress(lhs string) int64 {
+    var address int64
+    _, err := fmt.Sscanf(lhs, "mem[%d]", &address)
+    checkErr(err)
+    return address
+}
+
+func parse(line string) func(*Computer) *Computer {
+    parts := strings.Split(line, " = ")
+    if parts[0] == "mask" {
+        oneMask := getOneMask(parts[1])
+        zeroMask := getZeroMask(parts[1])
+        return func(c *Computer) *Computer {
+            c.mask = Mask{
+                oneMask,
+                zeroMask,
+            }
+            return c
+        }
+    } else {
+        value, err := strconv.ParseInt(parts[1], 10, 64)
+        checkErr(err)
+        address := getMemoryAddress(parts[0])
+        return func(c *Computer) *Computer {
+            c.memory[address] = (value | c.mask.ones) & c.mask.zeros
+            return c
+        }
+    }
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    computer := &Computer {
+        Mask {
+            0,
+            (1 << 36) - 1,
+        },
+        make(map[int64] int64),
+    }
+    for _, line := range lines {
+        computer = parse(line)(computer)
+    }
+    sum := int64(0)
+    for _, value := range computer.memory {
+        sum += value
+    }
+    return sum;
 }
 
 /*
@@ -22,6 +97,8 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        51,
+        165,
     }
 }
 
