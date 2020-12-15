@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
 type RESULT_TYPE = int
@@ -13,8 +14,32 @@ type RESULT_TYPE = int
 Begin Solution
 */
 
+const TARGET = 30000000
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    starters := strings.Split(strings.Join(lines, ""), ",")
+    lastSeen := make(map[int]int)
+    prev := 0
+    for i := 0; i < TARGET; i++ {
+        say := 0
+        if i < len(starters) {
+            parsed, err := strconv.Atoi(starters[i])
+            checkErr(err)
+            say = parsed
+        } else {
+            lastIndex, ok := lastSeen[prev]
+            if ok {
+                say = (i - 1) - lastIndex
+            } else {
+                say = 0
+            }
+        }
+        if (i > 0) {
+            lastSeen[prev] = i - 1
+        }
+        prev = say
+    }
+    return prev;
 }
 
 /*
@@ -22,6 +47,13 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        175594,
+        2578,
+        3544142,
+        261214,
+        6895259,
+        18,
+        362,
     }
 }
 
