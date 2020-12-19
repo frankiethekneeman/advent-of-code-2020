@@ -2,11 +2,11 @@ package main
 
 import (
     "bufio"
-    "flag"
     "fmt"
     "os"
     "strconv"
     "strings"
+    "sync"
 )
 
 type RESULT_TYPE = int
@@ -25,59 +25,121 @@ type Terminal struct {
     literal rune
 }
 
+//Not actually a generator - a complicated bidirectional lock that allows for generator-like
+//behaviour.
+type Generator struct {
+    channel chan int
+    readSignal chan bool
+    mutex *sync.Mutex
+    closed bool
+}
+
+func (c *Generator) close() {
+    c.mutex.Lock()
+    if (c.closed) {
+        c.mutex.Unlock()
+        return
+    }
+    c.closed = true
+    close(c.readSignal)
+    close(c.channel)
+    c.mutex.Unlock()
+}
+
+func (c *Generator) read() (int, bool) {
+    c.mutex.Lock()
+    if c.closed {
+        c.mutex.Unlock()
+        return 0, false
+    }
+    c.readSignal <- true
+    c.mutex.Unlock()
+    toReturn, more := <-c.channel
+    return toReturn, more
+}
+
+func (c *Generator) write(msg int) bool {
+    c.mutex.Lock()
+    if c.closed {
+        c.mutex.Unlock()
+        return false
+    }
+    c.channel <- msg
+    c.mutex.Unlock()
+    return <- c.readSignal
+}
+
+func generator() *Generator {
+    return &Generator {
+        make(chan int, 1),
+        make(chan bool, 1),
+        &sync.Mutex{},
+        false,
+    }
+}
+
 type Grammar = map[int] Rule
 type Rule interface {
     id() int
-    consume(tokens []rune, start int, g Grammar, out chan<- int)
+    consume(tokens []rune, start int, g Grammar, out *Generator)
 }
 
 func (t Terminal) id() int {
     return t.identity
 }
 
-func (t Terminal) consume(tokens []rune, start int, _ Grammar, out chan<- int) {
+func (t Terminal) consume(tokens []rune, start int, _ Grammar, out *Generator) {
     if start < len(tokens) && tokens[start] == t.literal {
-        out <- start + 1
+        if ! out.write(start + 1) {
+            return
+        }
     }
-    close(out)
+    out.close()
 }
 
 func (n NonTerminal) id() int {
     return n.identity
 }
 
-var CHANNEL_SIZE *int = flag.Int("backlog", 1, "Number of attempts ahead recursive parsers can get.")
-
-func consume(replacement []int, tokens []rune, start int, g Grammar, out chan<- int) {
+func consume(replacement []int, tokens []rune, start int, g Grammar, out *Generator) {
     if len(replacement) == 0 {
-        out <- start
+        if ! out.write(start) {
+            return
+        }
     } else {
-        nexts := make(chan int, *CHANNEL_SIZE)
+        nexts := generator()
         rule, ok := g[replacement[0]]
         if !ok {
             panic("No rule for id " + strconv.Itoa(replacement[0]))
         }
         go rule.consume(tokens, start, g, nexts)
-        for next := range nexts {
-            ends := make(chan int, *CHANNEL_SIZE)
+        for next, ok := nexts.read(); ok; next, ok = nexts.read() {
+            ends := generator()
             go consume(replacement[1:], tokens, next, g, ends)
-            for end := range ends {
-                out <- end
+            for end, ok := ends.read(); ok; end, ok = ends.read() {
+                if ! out.write(end) {
+                    nexts.close()
+                    ends.close()
+                    return
+                }
             }
         }
     }
-    close(out)
+    out.close()
 }
 
-func (n NonTerminal) consume(tokens []rune, start int, g Grammar, out chan<- int) {
+func (n NonTerminal) consume(tokens []rune, start int, g Grammar, out *Generator) {
     for _, replacement := range n.replacements {
-        nexts := make(chan int, *CHANNEL_SIZE)
+        nexts := generator()
         go consume(replacement, tokens, start, g, nexts)
-        for next := range nexts {
-            out <- next
+        for next, ok := nexts.read(); ok; next, ok = nexts.read() {
+            if ! out.write(next) {
+                nexts.close()
+                return
+            }
         }
     }
-    close(out)
+    out.close()
 }
 
 func parseRule(line string) Rule {
@@ -126,11 +188,12 @@ func parseRule(line string) Rule {
 }
 
 func matches(g Grammar, input string) bool {
-    endpoints := make(chan int, *CHANNEL_SIZE)
+    endpoints := generator()
     tokens := []rune(input)
     go g[0].consume(tokens, 0, g, endpoints)
-    for endpoint := range endpoints {
+    for endpoint, ok := endpoints.read(); ok; endpoint, ok = endpoints.read() {
         if endpoint == len(tokens) {
+            endpoints.close()
             return true
         }
     }
@@ -138,7 +201,6 @@ func matches(g Grammar, input string) bool {
 }
 
 func solution(lines []string) RESULT_TYPE {
-    flag.Parse()
     grammar := Grammar{}
     i := 0
     for ; lines[i] != ""; i++ {

@@ -2,7 +2,6 @@ package main
 
 import (
     "bufio"
-    "flag"
     "fmt"
     "os"
     "strconv"
@@ -28,56 +27,54 @@ type Terminal struct {
 type Grammar = map[int] Rule
 type Rule interface {
     id() int
-    consume(tokens []rune, start int, g Grammar, out chan<- int)
+    consume(tokens []rune, start int, g Grammar) map[int] bool
 }
 
 func (t Terminal) id() int {
     return t.identity
 }
 
-func (t Terminal) consume(tokens []rune, start int, _ Grammar, out chan<- int) {
+func (t Terminal) consume(tokens []rune, start int, _ Grammar) map[int] bool {
+    toReturn := make(map[int] bool)
     if start < len(tokens) && tokens[start] == t.literal {
-        out <- start + 1
+        toReturn[start + 1] = true
     }
-    close(out)
+    return toReturn
 }
 
 func (n NonTerminal) id() int {
     return n.identity
 }
 
-var CHANNEL_SIZE *int = flag.Int("backlog", 1, "Number of attempts ahead recursive parsers can get.")
-
-func consume(replacement []int, tokens []rune, start int, g Grammar, out chan<- int) {
+func consume(replacement []int, tokens []rune, start int, g Grammar) map[int] bool{
+    toReturn := make(map[int] bool)
     if len(replacement) == 0 {
-        out <- start
+        toReturn[start] = true
     } else {
-        nexts := make(chan int, *CHANNEL_SIZE)
         rule, ok := g[replacement[0]]
         if !ok {
             panic("No rule for id " + strconv.Itoa(replacement[0]))
         }
-        go rule.consume(tokens, start, g, nexts)
+        nexts := rule.consume(tokens, start, g)
         for next := range nexts {
-            ends := make(chan int, *CHANNEL_SIZE)
-            go consume(replacement[1:], tokens, next, g, ends)
+            ends := consume(replacement[1:], tokens, next, g)
             for end := range ends {
-                out <- end
+                toReturn[end] = true
             }
         }
     }
-    close(out)
+    return toReturn
 }
 
-func (n NonTerminal) consume(tokens []rune, start int, g Grammar, out chan<- int) {
+func (n NonTerminal) consume(tokens []rune, start int, g Grammar) map[int] bool {
+    toReturn := make(map[int] bool)
     for _, replacement := range n.replacements {
-        nexts := make(chan int, *CHANNEL_SIZE)
-        go consume(replacement, tokens, start, g, nexts)
+        nexts := consume(replacement, tokens, start, g)
         for next := range nexts {
-            out <- next
+            toReturn[next] = true
         }
     }
-    close(out)
+    return toReturn
 }
 
 func parseRule(line string) Rule {
@@ -126,19 +123,12 @@ func parseRule(line string) Rule {
 }
 
 func matches(g Grammar, input string) bool {
-    endpoints := make(chan int, *CHANNEL_SIZE)
     tokens := []rune(input)
-    go g[0].consume(tokens, 0, g, endpoints)
-    for endpoint := range endpoints {
-        if endpoint == len(tokens) {
-            return true
-        }
-    }
-    return false
+    endpoints := g[0].consume(tokens, 0, g)
+    return endpoints[len(tokens)]
 }
 
 func solution(lines []string) RESULT_TYPE {
-    flag.Parse()
     grammar := Grammar{}
     i := 0
     for ; lines[i] != ""; i++ {
