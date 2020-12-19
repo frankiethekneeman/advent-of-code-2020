@@ -4,7 +4,6 @@ import (
     "bufio"
     "fmt"
     "os"
-    "regexp"
     "strconv"
     "strings"
 )
@@ -25,78 +24,80 @@ type Terminal struct {
     literal rune
 }
 
-type Rule8 struct {}
-
 type Grammar = map[int] Rule
 type Rule interface {
     id() int
-    asRegularExpression(g Grammar) string
+    consume(tokens []rune, start int, g Grammar, out chan<- int)
 }
 
 func (t Terminal) id() int {
     return t.identity
 }
-func (t Terminal) asRegularExpression(_ Grammar) string {
-    return string(t.literal)
+
+func (t Terminal) consume(tokens []rune, start int, _ Grammar, out chan<- int) {
+    if start < len(tokens) && tokens[start] == t.literal {
+        out <- start + 1
+    }
+    close(out)
 }
 
 func (n NonTerminal) id() int {
     return n.identity
 }
 
-func (n NonTerminal) asRegularExpression(g Grammar) string {
-    subExpressions := make([]string, len(n.replacements))
-    for i, replacement := range n.replacements {
-        var expressionBuilder strings.Builder
-        for _, id := range replacement {
-            r, ok := g[id]
-            if !ok {
-                panic("No rule for id " + strconv.Itoa(id))
-            }
-            expressionBuilder.WriteString(r.asRegularExpression(g))
+func consume(replacement []int, tokens []rune, start int, g Grammar, out chan<- int) {
+    if len(replacement) == 0 {
+        out <- start
+    } else {
+        nexts := make(chan int, 1)
+        rule, ok := g[replacement[0]]
+        if !ok {
+            panic("No rule for id " + strconv.Itoa(replacement[0]))
         }
-        subExpressions[i] = expressionBuilder.String()
+        go rule.consume(tokens, start, g, nexts)
+        for next := range nexts {
+            ends := make(chan int, 1)
+            go consume(replacement[1:], tokens, next, g, ends)
+            for end := range ends {
+                out <- end
+            }
+        }
     }
-    if len(subExpressions) == 1 {
-        return subExpressions[0]
-    }
-    return "(" + strings.Join(subExpressions, "|") + ")"
+    close(out)
 }
 
-func (_ Rule8) id() int {
-    return 8
-}
-
-func (_ Rule8) asRegularExpression(g Grammar) string {
-    return g[42].asRegularExpression(g) + "+"
-}
-
-func replacementWithRecursions(n int) []int {
-    toReturn := make([]int, 2 * n)
-    last := 2 * n - 1
-    for i := 0; i < n; i++ {
-        toReturn[i] = 42
-        toReturn[last-i] = 31
+func (n NonTerminal) consume(tokens []rune, start int, g Grammar, out chan<- int) {
+    for _, replacement := range n.replacements {
+        nexts := make(chan int, 1)
+        go consume(replacement, tokens, start, g, nexts)
+        for next := range nexts {
+            out <- next
+        }
     }
-    return toReturn
-}
-func genRule11Replacements(n int) [][]int {
-    toReturn := make([][]int, n)
-    for i := range toReturn {
-        toReturn[i] = replacementWithRecursions(i + 1)
-    }
-    return toReturn
+    close(out)
 }
 
-func parseRule(line string, maxInputLength int) Rule {
+func parseRule(line string) Rule {
     parts := strings.Split(line, ": ")
     id, err := strconv.Atoi(parts[0])
     checkErr(err)
     if id == 8 {
-        return Rule8{}
+        return NonTerminal {
+            8,
+            [][]int {
+                []int { 42 },
+                []int { 42, 8 },
+            },
+        }
     }
     if id == 11 {
-        return NonTerminal{ id, genRule11Replacements(maxInputLength/2) }
+        return NonTerminal {
+            11,
+            [][]int {
+                []int {42, 31},
+                []int {42, 11, 31},
+            },
+        }
     }
     if parts[1] == "\"a\"" || parts[1] == "\"b\"" {
         return Terminal {
@@ -121,29 +122,31 @@ func parseRule(line string, maxInputLength int) Rule {
 
 }
 
-func solution(lines []string) RESULT_TYPE {
-    grammar := Grammar{}
-    max := 0
-    for _, line := range lines {
-        if len(line) > max {
-            max = len(line)
+func matches(g Grammar, input string) bool {
+    endpoints := make(chan int, 1)
+    tokens := []rune(input)
+    go g[0].consume(tokens, 0, g, endpoints)
+    for endpoint := range endpoints {
+        if endpoint == len(tokens) {
+            return true
         }
     }
+    return false
+}
+
+func solution(lines []string) RESULT_TYPE {
+    grammar := Grammar{}
     i := 0
     for ; lines[i] != ""; i++ {
-        rule := parseRule(lines[i], max)
+        rule := parseRule(lines[i])
         grammar[rule.id()] = rule
     }
-    regex := grammar[0].asRegularExpression(grammar)
-    expr := regexp.MustCompile("^" + regex + "$")
-    
     count := 0
     for i++; i < len(lines); i++ {
-        if expr.MatchString(lines[i]) {
+        if matches(grammar, lines[i]) {
             count++
         }
     }
-
 
     return count;
 }
