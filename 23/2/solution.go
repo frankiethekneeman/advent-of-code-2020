@@ -5,23 +5,105 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
-type RESULT_TYPE = int
+type RESULT_TYPE = int64
 
 /*
 Begin Solution
 */
+const N_STEPS = 10_000_000
+const MAX_CUP = 1_000_000
+const MIN_CUP = 1
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    currentCup := parse(strings.Join(lines, ""))
+    fill(10, MAX_CUP, currentCup)
+
+    index := makeIndex(currentCup)
+
+    for i := 0; i < N_STEPS; i++ {
+        currentCup = step(currentCup, index)
+    }
+    star1 := index[1].clockwise.label
+    star2 := index[1].clockwise.clockwise.label
+    return int64(star1) * int64(star2)
 }
 
+func step(currentCup *Cup, index CupIndex) *Cup {
+    pickup := currentCup.clockwise
+    currentCup.clockwise = pickup.clockwise.clockwise.clockwise //pickup 3 cups.
+    pickup.clockwise.clockwise.clockwise = nil
+    destinationCup := getDestination(currentCup.label, index, makeIndex(pickup))
+    pickup.clockwise.clockwise.clockwise = destinationCup.clockwise
+    destinationCup.clockwise = pickup
+    return currentCup.clockwise
+}
+
+func parse(line string) *Cup {
+    runes := []rune(line)
+    firstCup := cup(int(runes[0] - '0'))
+    curr := firstCup
+    for _, r := range runes[1:] {
+        curr.clockwise = cup(int(r - '0'))
+        curr = curr.clockwise
+    }
+    curr.clockwise = firstCup
+    return firstCup
+}
+
+func fill(firstToAdd int, lastToAdd int, firstCup *Cup) {
+    curr := firstCup.clockwise
+    for curr.clockwise.label != firstCup.label {
+        curr = curr.clockwise
+    }
+    for add := firstToAdd; add <= lastToAdd; add ++ {
+        curr.clockwise = cup(add)
+        curr = curr.clockwise
+    }
+    curr.clockwise = firstCup
+}
+
+func makeIndex(current *Cup) CupIndex {
+    index := make(CupIndex)
+    for current != nil && index[current.label] == nil {
+        index[current.label] = current
+        current = current.clockwise
+    }
+    return index
+}
+
+func getDestination(currentLabel int, index CupIndex, removed CupIndex) *Cup {
+    destinationLabel := currentLabel - 1
+    if destinationLabel < MIN_CUP {
+        destinationLabel = MAX_CUP
+    }
+    for removed[destinationLabel] != nil {
+        destinationLabel --
+        if destinationLabel < MIN_CUP {
+            destinationLabel = MAX_CUP
+        }
+    }
+    return index[destinationLabel]
+}
+
+type Cup struct {
+    label int
+    clockwise *Cup
+}
+
+type CupIndex = map[int]*Cup
+
+func cup(label int) *Cup {
+    return &Cup{label, nil}
+}
 /*
 Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        149245887792,
     }
 }
 

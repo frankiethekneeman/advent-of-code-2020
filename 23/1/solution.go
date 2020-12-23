@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
 type RESULT_TYPE = int
@@ -12,16 +13,87 @@ type RESULT_TYPE = int
 /*
 Begin Solution
 */
+const N_STEPS = 100
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    currentCup := parse(strings.Join(lines, ""))
+    index := makeIndex(currentCup)
+    for i := 0; i < N_STEPS; i++ {
+        currentCup = step(currentCup, index)
+    }
+    cup := index[1].clockwise
+    result := 0
+    multiplier := 10000000
+    for cup.label != 1 {
+        result += multiplier * cup.label
+        cup = cup.clockwise
+        multiplier /= 10
+
+    }
+    return result;
 }
 
+func step(currentCup *Cup, index CupIndex) *Cup {
+    pickup := currentCup.clockwise
+    currentCup.clockwise = pickup.clockwise.clockwise.clockwise //pickup 3 cups.
+    pickup.clockwise.clockwise.clockwise = nil
+    destinationCup := getDestination(currentCup.label, index, makeIndex(pickup))
+    pickup.clockwise.clockwise.clockwise = destinationCup.clockwise
+    destinationCup.clockwise = pickup
+    return currentCup.clockwise
+}
+
+func parse(line string) *Cup {
+    runes := []rune(line)
+    firstCup := cup(int(runes[0] - '0'))
+    curr := firstCup
+    for _, r := range runes[1:] {
+        curr.clockwise = cup(int(r - '0'))
+        curr = curr.clockwise
+    }
+    curr.clockwise = firstCup
+    return firstCup
+}
+
+func makeIndex(current *Cup) CupIndex {
+    index := make(CupIndex)
+    for current != nil && index[current.label] == nil {
+        index[current.label] = current
+        current = current.clockwise
+    }
+    return index
+}
+
+func getDestination(currentLabel int, index CupIndex, removed CupIndex) *Cup {
+    destinationLabel := currentLabel - 1
+    if destinationLabel < 1 {
+        destinationLabel = 9 // This is definitely going to change in part 2.
+    }
+    for removed[destinationLabel] != nil {
+        destinationLabel --
+        if destinationLabel < 1 {
+            destinationLabel = 9 // This is definitely going to change in part 2.
+        }
+    }
+    return index[destinationLabel]
+}
+
+type Cup struct {
+    label int
+    clockwise *Cup
+}
+
+type CupIndex = map[int]*Cup
+
+func cup(label int) *Cup {
+    return &Cup{label, nil}
+}
 /*
 Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        67384529,
     }
 }
 
