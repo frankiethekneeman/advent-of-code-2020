@@ -3,18 +3,83 @@ package main
 import (
     "bufio"
     "fmt"
+    "math/big"
     "os"
     "strconv"
+    "strings"
 )
 
-type RESULT_TYPE = int
+type RESULT_TYPE = int64
 
 /*
 Begin Solution
 */
+const (
+    NO_CONSTRAINT = "x"
+)
+
+type TargetDef struct {
+    value *big.Int
+    modulo *big.Int
+}
+
+func parseBusses(line string) []TargetDef {
+    parts := strings.Split(line, ",")
+    toReturn := make([]TargetDef, 0, len(parts))
+    for i, part := range parts {
+        if part == NO_CONSTRAINT {
+            continue
+        }
+        id, err := strconv.ParseInt(part, 10, 64)
+        checkErr(err)
+        bigI := big.NewInt(int64(i))
+        bigId := big.NewInt(int64(id))
+        var val big.Int
+        val.Sub(bigId, bigI)
+        val.Mod(&val, bigId)
+        toReturn = append(toReturn, TargetDef{
+            &val,
+            bigId,
+        })
+    }
+    return toReturn
+}
+
+func multInv(value int64, modulo int64) int64 {
+    for i := int64(0); i < modulo; i++ {
+        if value * i % modulo == 1 {
+            return i
+        }
+    }
+    panic("No multiplicative Inverse")
+}
+func combine(l TargetDef, r TargetDef) TargetDef {
+    if l.modulo.Cmp(r.modulo) == -1 {
+        return combine(r, l)
+    }
+    coFactor := big.NewInt(multInv(l.modulo.Int64(), r.modulo.Int64()))
+    var newMod big.Int
+    newMod.Mul(l.modulo, r.modulo)
+    var newVal big.Int
+    newVal.Sub(r.value, l.value)
+    newVal.Mul(&newVal, l.modulo)
+    newVal.Mul(&newVal, coFactor)
+    newVal.Add(&newVal, l.value)
+    newVal.Mod(&newVal, &newMod)
+    return TargetDef{
+        &newVal,
+        &newMod,
+    }
+}
 
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    busses := parseBusses(lines[1])
+    target := busses[0]
+    for _, bus := range busses[1:] {
+        target = combine(target, bus)
+    }
+
+    return target.value.Int64()
 }
 
 /*
@@ -22,6 +87,12 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        1068781,
+        3417,
+        754018,
+        779210,
+        1261476,
+        1202161486,
     }
 }
 

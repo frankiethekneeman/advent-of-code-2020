@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "strconv"
+    "strings"
 )
 
 type RESULT_TYPE = int
@@ -13,8 +14,41 @@ type RESULT_TYPE = int
 Begin Solution
 */
 
+const (
+    OUT_OF_SERVICE = "x"
+)
+func parseBusses(line string) []int {
+    parts := strings.Split(line, ",")
+    toReturn := make([]int, 0, len(parts))
+    for _, part := range parts {
+        if part == OUT_OF_SERVICE {
+            continue
+        }
+        id, err := strconv.Atoi(part)
+        checkErr(err)
+        toReturn = append(toReturn, id)
+    }
+    return toReturn
+}
+
+func calcWait(bus int, arrival int) int {
+    if arrival % bus == 0 {
+        return 0
+    }
+    return bus - (arrival % bus)
+}
+
 func solution(lines []string) RESULT_TYPE {
-    return -1;
+    arrival, err := strconv.Atoi(lines[0])
+    checkErr(err)
+    busses := parseBusses(lines[1])
+    firstBus := busses[0]
+    for _, bus := range busses {
+        if calcWait(bus, arrival) < calcWait(firstBus, arrival) {
+            firstBus = bus
+        }
+    }
+    return firstBus * calcWait(firstBus, arrival);
 }
 
 /*
@@ -22,6 +56,7 @@ Test Cases
 */
 func TEST_CASES() []RESULT_TYPE {
     return []RESULT_TYPE {
+        295,
     }
 }
 
